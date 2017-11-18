@@ -1,0 +1,18 @@
+---
+title: "TimeseriesProject"
+author: "Christopher Csiszar, Neerja Doshi, John Rumpel, Santhosh Hari"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = FALSE)
+```
+
+#Problem Statement
+
+Our team was given the task to forecast the monthly bankruptcy rates of Canada after being given the monthly data from January 1987 to December 2010. This data contained the original information of the bankruptcy rates, unemployment rates, population, and housing price indices through those dates. By forecasting the future bankruptcy rate we will help the multiple industries interested in this information prepare for future outcomes.
+
+```{r}
+train <- read.csv('train.csv')
+test <- read.csv('test.csv')
+```
