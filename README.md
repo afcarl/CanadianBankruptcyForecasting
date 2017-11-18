@@ -8,3 +8,4 @@ Final Report should include the following:
 - A description of available methods to solve the problem (Modelling approaches)
 - A textual and visual justification of the method you chose to solve the problem
 - A graphical and tabular depiction of your forecasting results
+
