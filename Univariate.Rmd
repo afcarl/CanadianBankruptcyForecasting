@@ -1,0 +1,96 @@
+---
+title: "Univariate"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tseries)
+library(car)
+```
+
+```{r}
+train = read.csv('train.csv')
+train = na.omit(train)
+train_uni = train[, c('Month', 'Bankruptcy_Rate')]
+tail(train)
+
+```
+
+```{r}
+only_bankruptcy = ts(train$Bankruptcy_Rate)
+only_bankruptcy
+adf.test(only_bankruptcy)
+d = 0
+pvalue = 1
+while(pvalue > 0.05){
+  d = d+1  
+  pvalue = adf.test(diff(LakeHuron, differences = d))$p.value
+}
+only_bankruptcy_differenced = diff(LakeHuron, differences = d)
+print(d)
+print(pvalue)
+```
+
+
+
+```{r}
+plot(only_bankruptcy_differenced)
+plot(only_bankruptcy)
+acf(only_bankruptcy_differenced)
+pacf(only_bankruptcy_differenced)
+
+```
+We suspect this could be a MA(1) or AR(2).
+```{r}
+# Fit AR(p) Models:
+ar1 <- arima(only_bankruptcy_differenced, order=c(1,0,0)) #AR(1)
+ar2 <- arima(only_bankruptcy_differenced, order=c(2,0,0)) #AR(2)
+ar3 <- arima(only_bankruptcy_differenced, order=c(3,0,0)) #AR(3)
+sigma2<-c(ar1$sigma2,ar2$sigma2,ar3$sigma2)
+loglik<-c(ar1$loglik,ar2$loglik,ar3$loglik)
+AIC<-c(ar1$aic,ar2$aic,ar3$aic)
+d <- data.frame(pq = c("(1,0)","(2,0)","(3,0)"),sigma2,loglik,AIC)
+d
+
+```
+From the table, we can see that AR(3) seems better because the sigma-squared and AIC values are lesser as compared to AR(1) and AR(2) while the log likelihood is higher.
+
+
+
+```{r}
+# Fit AR(p) Models:
+ma1 <- arima(only_bankruptcy_differenced, order=c(0,0,1)) #MA(1)
+ma2 <- arima(only_bankruptcy_differenced, order=c(0,0,2)) #MA(2)
+ma3 <- arima(only_bankruptcy_differenced, order=c(0,0,3)) #MA(3)
+sigma2<-c(ma1$sigma2,ma2$sigma2,ma3$sigma2)
+loglik<-c(ma1$loglik,ma2$loglik,ma3$loglik)
+AIC<-c(ma1$aic,ma2$aic,ma3$aic)
+d <- data.frame(pq = c("(0,1)","(0,2)","(0,3)"),sigma2,loglik,AIC)
+d
+
+```
+Here, we could say that MA(2) fits better than MA(1) and MA(3) because of the sigma - squared and AIC values.
+
+```{r}
+
+arma1_1 <- arima(only_bankruptcy_differenced, order=c(1,0,1)) 
+arma1_2 <- arima(only_bankruptcy_differenced, order=c(1,0,2)) 
+arma1_3 <- arima(only_bankruptcy_differenced, order=c(1,0,3))
+arma2_1 <- arima(only_bankruptcy_differenced, order=c(2,0,1)) 
+arma2_2 <- arima(only_bankruptcy_differenced, order=c(2,0,2)) 
+arma2_3 <- arima(only_bankruptcy_differenced, order=c(2,0,3)) 
+arma3_1 <- arima(only_bankruptcy_differenced, order=c(3,0,1)) 
+arma3_2 <- arima(only_bankruptcy_differenced, order=c(3,0,2)) 
+arma3_3 <- arima(only_bankruptcy_differenced, order=c(3,0,3)) 
+sigma2<-c(arma1_1$sigma2,arma1_2$sigma2,arma1_3$sigma2, arma2_1$sigma2, arma2_2$sigma2, arma2_3$sigma2, arma3_1$sigma2, arma3_2$sigma2, arma3_3$sigma2)
+loglik<-c(arma1_1$loglik,arma1_2$loglik,arma1_3$loglik, arma2_1$loglik, arma2_2$loglik, arma2_3$loglik, arma3_1$loglik, arma3_2$loglik, arma3_3$loglik)
+AIC<-c(arma1_1$aic,arma1_2$aic,arma1_3$aic, arma2_1$aic, arma2_2$aic, arma2_3$aic, arma3_1$aic, arma3_2$aic, arma3_3$aic)
+d <- data.frame(pq = c("(1,1)","(1,2)","(1,3)", "(2,1)", '(2,2)', '(2,3)', '(3,1)','(3,2)','(3,3)'),sigma2,loglik,AIC)
+
+
+
+
+```
+
+
