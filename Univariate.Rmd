@@ -25,9 +25,9 @@ d = 0
 pvalue = 1
 while(pvalue > 0.05){
   d = d+1  
-  pvalue = adf.test(diff(LakeHuron, differences = d))$p.value
+  pvalue = adf.test(diff(only_bankruptcy, differences = d))$p.value
 }
-only_bankruptcy_differenced = diff(LakeHuron, differences = d)
+only_bankruptcy_differenced = diff(only_bankruptcy, differences = d)
 print(d)
 print(pvalue)
 ```
@@ -87,7 +87,7 @@ sigma2<-c(arma1_1$sigma2,arma1_2$sigma2,arma1_3$sigma2, arma2_1$sigma2, arma2_2$
 loglik<-c(arma1_1$loglik,arma1_2$loglik,arma1_3$loglik, arma2_1$loglik, arma2_2$loglik, arma2_3$loglik, arma3_1$loglik, arma3_2$loglik, arma3_3$loglik)
 AIC<-c(arma1_1$aic,arma1_2$aic,arma1_3$aic, arma2_1$aic, arma2_2$aic, arma2_3$aic, arma3_1$aic, arma3_2$aic, arma3_3$aic)
 d <- data.frame(pq = c("(1,1)","(1,2)","(1,3)", "(2,1)", '(2,2)', '(2,3)', '(3,1)','(3,2)','(3,3)'),sigma2,loglik,AIC)
-
+d
 
 
 
