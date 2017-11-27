@@ -18,7 +18,7 @@ tail(train)
 ```
 
 ```{r}
-only_bankruptcy = ts(train$Bankruptcy_Rate)
+only_bankruptcy = ts(train$Bankruptcy_Rate, start = c(2010,7), frequency = 12)
 only_bankruptcy
 adf.test(only_bankruptcy)
 d = 0
@@ -93,4 +93,40 @@ d
 
 ```
 
+Thus this could be an ARIMA(3,1,3) process.
 
+But we also see seasonality in the data, to remove which we difference using period = 12
+```{r}
+only_bankruptcy_differenced <- diff(only_bankruptcy_differenced, lag = 12)
+plot(only_bankruptcy_differenced)
+acf(only_bankruptcy_differenced, lag.max = 48)
+pacf(only_bankruptcy_differenced, lag.max = 100)
+```
+```{r}
+#SARIMA here!!
+#Followed by residual diagnostics  
+```
+
+##Double Exponential Smoothing
+```{r}
+hw.CH <- HoltWinters(x = only_bankruptcy, gamma = F) 
+par(mfrow = c(2,1))
+plot(hw.CH)
+
+```
+
+##Triple Exponential Smoothing - Additive
+```{r}
+hw.AD <- HoltWinters(x = only_bankruptcy, seasonal = "add") 
+par(mfrow = c(2,1))
+plot(hw.AD)
+
+```
+
+##Triple Exponential Smoothing - Multiplicative
+```{r}
+hw.AD <- HoltWinters(x = only_bankruptcy, seasonal = "multiplicative") 
+par(mfrow = c(2,1))
+plot(hw.AD)
+
+```
