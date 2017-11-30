@@ -1,0 +1,73 @@
+---
+title: "Univariate"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require("tidyverse")){install.packages("tidyverse", repos = "http://cran.us.r-project.org")}
+if(!require("tseries")){install.packages("tseries", repos = "http://cran.us.r-project.org")}
+if(!require("car")){install.packages("car", repos = "http://cran.us.r-project.org")}
+if(!require("forecast")){install.packages("forecast", repos = "http://cran.us.r-project.org")}
+if(!require("prophet")){install.packages("forecast", repos = "http://cran.us.r-project.org")}
+```
+
+```{r}
+train = read.csv('Data/train.csv')
+train = na.omit(train)
+only_bankruptcy = ts(train$Bankruptcy_Rate,start=c(1987,1),frequency = 12)
+train$Mon <- seq.Date(as.Date("1987/1/1"), as.Date("2010/12/1"), by = "month")
+tail(train)
+```
+
+## Time Series Decomposition:
+
+```{r}
+autoplot(decompose(only_bankruptcy))
+```
+
+## Fit ARIMA Model using `auto.arima`:
+
+```{r}
+ts_model <- auto.arima(only_bankruptcy)
+train$fitted <- ts_model$fitted
+train$resid <- ts_model$residuals
+ts_model
+```
+
+```{r}
+train %>% 
+  ggplot(aes(x=Mon))+
+  geom_line(aes(y=Bankruptcy_Rate,color='Actual'))+
+  geom_line(aes(y=fitted,color='Fitted'))+
+  labs(color='')
+```
+
+
+## Regress Residuals on Unemployment rate, Populatin and House Price Index:
+
+```{r}
+lin_mod <- glm(resid ~ Unemployment_Rate + Population + House_Price_Index, data = train)
+```
+
+## FB Prophet:
+
+```{r}
+train_prophet <- train %>% select(Mon,Bankruptcy_Rate)
+colnames(train_prophet) <- c('ds','y')
+```
+
+```{r}
+mod <- prophet(train_prophet)
+pred_prophet <- predict(mod)
+```
+
+```{r}
+pred_prophet %>% 
+  ggplot(aes(x=ds))+
+  geom_line(aes(y=train$Bankruptcy_Rate, color='Actual'))+
+  geom_line(aes(y=yhat,color='Fitted'))
+```
+
+
+
