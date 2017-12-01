@@ -1,5 +1,5 @@
 ---
-title: "TimeseriesProject"
+title: "Time Series Project"
 author: "Christopher Csiszar, Neerja Doshi, John Rumpel, Santhosh Hari"
 output: pdf_document
 ---
@@ -7,12 +7,20 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, include = FALSE)
 ```
+\begin{center}
+\Large \textbf{Problem Statement}
+\end{center}
+***
 
-#Problem Statement
-
-Our team was given the task to forecast the monthly bankruptcy rates of Canada after being given the monthly data from January 1987 to December 2010. This data contained the original information of the bankruptcy rates, unemployment rates, population, and housing price indices through those dates. By forecasting the future bankruptcy rate we will help the multiple industries interested in this information prepare for future outcomes.
+\normalsize
+\hspace{1cm} Our team was given the task to forecast the monthly bankruptcy rates of Canada after being given the monthly data from January 1987 to December 2010. This data contained the original information of the bankruptcy rates, unemployment rates, population, and housing price indices through those dates. By forecasting the future bankruptcy rate we will help the multiple industries interested in this information prepare for future outcomes.
 
 ```{r}
-train <- read.csv('train.csv')
-test <- read.csv('test.csv')
+#IMPORTANT
+#Change this to fit your space of saved data, switching working directory wasn't working for me
+train <- read.csv('~/classes/msan604/TimeSeriesProject/Data/train.csv')
+test <- read.csv('~/classes/msan604/TimeSeriesProject/Data/test.csv')
 ```
+##Notes on Data
+
+\hspace{1cm} Unemplyment rate is measured as the percent of individuals who are currently unemployed in Canada where as the Bankruptcy rate is measured as a ratio (i.e. multiply the value by 100 and you get a percentage). Population is measured as is, no shrinking of values by measuring in millions. Month is given by the month number followed by the year it occurred. Finally, the housing price index is measured as is. Our response variable, as mentioned earlier will be the bankruptcy rate, where the other variable 
