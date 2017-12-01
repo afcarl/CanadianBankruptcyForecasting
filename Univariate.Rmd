@@ -7,139 +7,153 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tseries)
 library(car)
+library(Metrics)
 ```
 
 Split the train data into train and validation. The last 2 years form a part of the validation set.
 ```{r}
 train = read.csv('train.csv')
 train = na.omit(train)
-train = log(train)
-valid = train[265:288,]
-train = train[1:264,]
-
-valid = valid$Bankruptcy_Rate
-valid = ts(valid, start = c(2009,1), frequency = 12 )
-valid
+train = train$Bankruptcy_Rate
+train = ts(train, start = c(1987,1), frequency = 12)
+plot(train)
 ```
 
+We can see that train needs to be normalised, so apply log transformation on it.
+We also split train into train and validation where the validation set consists of observations from the last 2 years of the time series.
+
 ```{r}
-only_bankruptcy = ts(train$Bankruptcy_Rate, start = c(1987,1), frequency = 12)
-plot(only_bankruptcy)
-adf.test(only_bankruptcy)
+train = log(train)
+valid = train[265:288]
+train = train[1:264]
+train = ts(train, start = c(1987,1), frequency = 12)
+valid = ts(valid, start = c(2009,1), frequency = 12) 
+train
+valid
+plot(train)
+plot(valid)
+
+length(train)
+length(valid)
+```
+We seem to see a trend and seasonality component. Thus we might have to model this using SARIMA. We first test for stationarity using the Augmented Dickey-Fuller Test and check how much ordinary differencing we need.
+
+```{r}
+adf.test(train)
 d = 0
 pvalue = 1
 while(pvalue > 0.05){
   d = d+1  
-  pvalue = adf.test(diff(only_bankruptcy, differences = d))$p.value
+  pvalue = adf.test(diff(train, differences = d))$p.value
 }
-bankruptcy = diff(only_bankruptcy, differences = d)
 print(d)
-print(pvalue)
-```
-
-
-
-```{r}
-plot(bankruptcy)
-plot(only_bankruptcy)
-acf(bankruptcy)
-pacf(bankruptcy)
-
-```
-We suspect this could be a MA(1) or AR(2).
-```{r}
-# Fit AR(p) Models:
-ar1 <- arima(bankruptcy, order=c(1,0,0)) #AR(1)
-ar2 <- arima(bankruptcy, order=c(2,0,0)) #AR(2)
-ar3 <- arima(bankruptcy, order=c(3,0,0)) #AR(3)
-sigma2<-c(ar1$sigma2,ar2$sigma2,ar3$sigma2)
-loglik<-c(ar1$loglik,ar2$loglik,ar3$loglik)
-AIC<-c(ar1$aic,ar2$aic,ar3$aic)
-d <- data.frame(pq = c("(1,0)","(2,0)","(3,0)"),sigma2,loglik,AIC)
-d
-
-```
-From the table, we can see that AR(3) seems better because the sigma-squared and AIC values are lesser as compared to AR(1) and AR(2) while the log likelihood is higher.
-
-
-
-```{r}
-# Fit AR(p) Models:
-ma1 <- arima(bankruptcy, order=c(0,0,1)) #MA(1)
-ma2 <- arima(bankruptcy, order=c(0,0,2)) #MA(2)
-ma3 <- arima(bankruptcy, order=c(0,0,3)) #MA(3)
-sigma2<-c(ma1$sigma2,ma2$sigma2,ma3$sigma2)
-loglik<-c(ma1$loglik,ma2$loglik,ma3$loglik)
-AIC<-c(ma1$aic,ma2$aic,ma3$aic)
-d <- data.frame(pq = c("(0,1)","(0,2)","(0,3)"),sigma2,loglik,AIC)
-d
-
-```
-Here, we could say that MA(2) fits better than MA(1) and MA(3) because of the sigma - squared and AIC values.
-
-```{r}
-
-arma1_1 <- arima(bankruptcy, order=c(1,0,1)) 
-arma1_2 <- arima(bankruptcy, order=c(1,0,2)) 
-arma1_3 <- arima(bankruptcy, order=c(1,0,3))
-arma2_1 <- arima(bankruptcy, order=c(2,0,1)) 
-arma2_2 <- arima(bankruptcy, order=c(2,0,2)) 
-arma2_3 <- arima(bankruptcy, order=c(2,0,3)) 
-arma3_1 <- arima(bankruptcy, order=c(3,0,1)) 
-arma3_2 <- arima(bankruptcy, order=c(3,0,2)) 
-arma3_3 <- arima(bankruptcy, order=c(3,0,3)) 
-sigma2<-c(arma1_1$sigma2,arma1_2$sigma2,arma1_3$sigma2, arma2_1$sigma2, arma2_2$sigma2, arma2_3$sigma2, arma3_1$sigma2, arma3_2$sigma2, arma3_3$sigma2)
-loglik<-c(arma1_1$loglik,arma1_2$loglik,arma1_3$loglik, arma2_1$loglik, arma2_2$loglik, arma2_3$loglik, arma3_1$loglik, arma3_2$loglik, arma3_3$loglik)
-AIC<-c(arma1_1$aic,arma1_2$aic,arma1_3$aic, arma2_1$aic, arma2_2$aic, arma2_3$aic, arma3_1$aic, arma3_2$aic, arma3_3$aic)
-d <- data.frame(pq = c("(1,1)","(1,2)","(1,3)", "(2,1)", '(2,2)', '(2,3)', '(3,1)','(3,2)','(3,3)'),sigma2,loglik,AIC)
-d
-
-
 
 ```
 
-Thus this could be an ARIMA(3,1,3) process.
+Thus we see that we need `r d` ordinary differences to remove the trend component.
 
-But we also see seasonality in the data, to remove which we difference using period = 12
 ```{r}
-bankruptcy <- diff(bankruptcy, lag = 12)
-plot(bankruptcy)
-acf(bankruptcy, lag.max = 48)
-pacf(bankruptcy, lag.max = 100)
+train_diff = diff(train, differences = d)
+plot(train_diff)
+acf(train_diff, lag.max = 144)
+pacf(train_diff, lag.max = 144)
+
 ```
+From the plots there seems to be a seasonality with period 12. To remove this, we need to difference the data once with a lag of 12. 
+Since the data exhibits both trend and seasonality, we use SARIMA to model it.
+
+<!-- We suspect this could be a MA(1) or AR(2). -->
+<!-- ```{r} -->
+<!-- # Fit AR(p) Models: -->
+<!-- ar1 <- arima(bankruptcy, order=c(1,0,0)) #AR(1) -->
+<!-- ar2 <- arima(bankruptcy, order=c(2,0,0)) #AR(2) -->
+<!-- ar3 <- arima(bankruptcy, order=c(3,0,0)) #AR(3) -->
+<!-- sigma2<-c(ar1$sigma2,ar2$sigma2,ar3$sigma2) -->
+<!-- loglik<-c(ar1$loglik,ar2$loglik,ar3$loglik) -->
+<!-- AIC<-c(ar1$aic,ar2$aic,ar3$aic) -->
+<!-- d <- data.frame(pq = c("(1,0)","(2,0)","(3,0)"),sigma2,loglik,AIC) -->
+<!-- d -->
+
+<!-- ``` -->
+<!-- From the table, we can see that AR(3) seems better because the sigma-squared and AIC values are lesser as compared to AR(1) and AR(2) while the log likelihood is higher. -->
+
+
+
+<!-- ```{r} -->
+<!-- # Fit AR(p) Models: -->
+<!-- ma1 <- arima(bankruptcy, order=c(0,0,1)) #MA(1) -->
+<!-- ma2 <- arima(bankruptcy, order=c(0,0,2)) #MA(2) -->
+<!-- ma3 <- arima(bankruptcy, order=c(0,0,3)) #MA(3) -->
+<!-- sigma2<-c(ma1$sigma2,ma2$sigma2,ma3$sigma2) -->
+<!-- loglik<-c(ma1$loglik,ma2$loglik,ma3$loglik) -->
+<!-- AIC<-c(ma1$aic,ma2$aic,ma3$aic) -->
+<!-- d <- data.frame(pq = c("(0,1)","(0,2)","(0,3)"),sigma2,loglik,AIC) -->
+<!-- d -->
+
+<!-- ``` -->
+<!-- Here, we could say that MA(2) fits better than MA(1) and MA(3) because of the sigma - squared and AIC values. -->
+
+<!-- ```{r} -->
+
+<!-- arma1_1 <- arima(bankruptcy, order=c(1,0,1))  -->
+<!-- arma1_2 <- arima(bankruptcy, order=c(1,0,2))  -->
+<!-- arma1_3 <- arima(bankruptcy, order=c(1,0,3)) -->
+<!-- arma2_1 <- arima(bankruptcy, order=c(2,0,1))  -->
+<!-- arma2_2 <- arima(bankruptcy, order=c(2,0,2))  -->
+<!-- arma2_3 <- arima(bankruptcy, order=c(2,0,3))  -->
+<!-- arma3_1 <- arima(bankruptcy, order=c(3,0,1))  -->
+<!-- arma3_2 <- arima(bankruptcy, order=c(3,0,2))  -->
+<!-- arma3_3 <- arima(bankruptcy, order=c(3,0,3))  -->
+<!-- sigma2<-c(arma1_1$sigma2,arma1_2$sigma2,arma1_3$sigma2, arma2_1$sigma2, arma2_2$sigma2, arma2_3$sigma2, arma3_1$sigma2, arma3_2$sigma2, arma3_3$sigma2) -->
+<!-- loglik<-c(arma1_1$loglik,arma1_2$loglik,arma1_3$loglik, arma2_1$loglik, arma2_2$loglik, arma2_3$loglik, arma3_1$loglik, arma3_2$loglik, arma3_3$loglik) -->
+<!-- AIC<-c(arma1_1$aic,arma1_2$aic,arma1_3$aic, arma2_1$aic, arma2_2$aic, arma2_3$aic, arma3_1$aic, arma3_2$aic, arma3_3$aic) -->
+<!-- d <- data.frame(pq = c("(1,1)","(1,2)","(1,3)", "(2,1)", '(2,2)', '(2,3)', '(3,1)','(3,2)','(3,3)'),sigma2,loglik,AIC) -->
+<!-- d -->
+
+
+
+<!-- ``` -->
+
+<!-- Thus this could be an ARIMA(3,1,3) process. -->
+
 
 ```{r}
-auto.arima(only_bankruptcy,d = 1, D=1)
-a = arima(only_bankruptcy, c(2,1,3), c(2,1,2))
+train_diff2 <- diff(train_diff, lag = 12)
+plot(train_diff2)
+acf(train_diff2, lag.max = 48)
+pacf(train_diff2, lag.max = 100)
+```
+Thus, we now try various values of p, q, P and Q to model this data using SARIMA with d = 1, D = 1 and period = 12.
+
+```{r}
+auto = auto.arima(train,d = 1, D=1)
+a = arima(train, c(2,1,3), c(2,1,2))
 a_stat = c(a$sigma2, a$loglik, a$aic)
 
-b = arima(only_bankruptcy, c(2,1,2), c(2,1,2))
+b = arima(train, c(2,1,2), c(2,1,2))
 b_stat = c(b$sigma2, b$loglik, b$aic)
 
-c = arima(only_bankruptcy, c(2,1,2), c(2,1,1))
+c = arima(train, c(2,1,2), c(2,1,1))
 c_stat = c(c$sigma2, c$loglik, c$aic)
 
-d = arima(only_bankruptcy, c(2,1,3), c(2,1,1))
+d = arima(train, c(2,1,3), c(2,1,1))
 d_stat = c(d$sigma2, d$loglik, d$aic)
 
-e = arima(only_bankruptcy, c(0,1,3), c(2,1,3))
+e = arima(train, c(0,1,3), c(2,1,3))
 e_stat = c(e$sigma2, e$loglik, e$aic)
 
-g = arima(only_bankruptcy, c(1,1,3), c(2,1,3))
-g_stat = c(g$sigma2, g$loglik, g$aic)
+f = arima(train, c(1,1,3), c(2,1,3))
+f_stat = c(f$sigma2, f$loglik, f$aic)
 
-h = arima(only_bankruptcy, c(2,1,3), c(2,1,3))
+h = arima(train, c(2,1,3), c(2,1,3))
 h_stat = c(h$sigma2, h$loglik, h$aic)
 
-
-
-
-
-table1 = rbind(a_stat, b_stat, c_stat, d_stat, e_stat, g_stat, h_stat)
+table1 = rbind(a_stat, b_stat, c_stat, d_stat, e_stat, f_stat, h_stat)
 colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC')
 table1
 ```
-
+It seems that e and h have the more optimal values of the models that have been used for training.
+We test if h is better than e using the likelihood ratio test.
 ###Likelihood Ratio Test:
 ```{r}
 D <- -2*(e$loglik - h$loglik)
@@ -148,8 +162,8 @@ print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
 
 ```
 
-
-From this we can see that SARIMA(0,1,3)(2,1,3)[12] does better than the other models. Since SARIMA works better than any of the previous methods (from the Box Jenkins approach), we focus our analysis on SARIMA. For checking which model is better, we first do a residual diagnostic to check if our model is a good fit on the data.
+p-value > 0.05 whixh means that both the models perform equally well, thus we take the simpler model i.e model e.
+From this we can say that SARIMA(0,1,3)(2,1,3)[12] does better than the other models. Since SARIMA works better than any of the previous methods (from the Box Jenkins approach), we focus our analysis on SARIMA. We first do a residual diagnostic to check if our model is a good fit on the data.
 
 
 ```{r}
@@ -183,7 +197,7 @@ All tests except normality are passed due to outliers at the beginning of the ti
 **Testing on the validation set:**
 ```{r}
 
-forecast_sarima = forecast(e, h = 72, level = 95)
+forecast_sarima = forecast(e, h = 24, level = 95)
 plot(forecast_sarima)
 valid
 #forecast_sarima
@@ -191,30 +205,135 @@ rmse_sarima = rmse(valid, forecast_sarima$mean)
 rmse_sarima
 ```
 
+The rmse on the validation set is `r rmse` which does not seem like an optimal fit. 
+
+To improve the results, we could try subsetting the data:
+```{r}
+train_subset99 = train[145:264]
+train_subset99 = ts(train_subset99, start = 1999, frequency = 12)
+plot(train_subset99)
+```
+
+```{r}
+auto = auto.arima(train_subset99,d = 1, D = 1)
+# a = arima(train_subset99, c(2,1,3), c(2,1,2))
+# a_stat = c(a$sigma2, a$loglik, a$aic)
+
+b = arima(train_subset99, c(2,1,2), c(2,1,2), method = 'CSS')
+b_stat = c(b$sigma2, b$loglik, b$aic)
+
+c = arima(train_subset99, c(2,1,2), c(2,1,1), method = 'CSS')
+c_stat = c(c$sigma2, c$loglik, c$aic)
+
+d = arima(train_subset99, c(2,1,3), c(2,1,1), method = 'CSS')
+d_stat = c(d$sigma2, d$loglik, d$aic)
+
+e = arima(train_subset99, c(0,1,3), c(2,1,3), method = 'CSS')
+e_stat = c(e$sigma2, e$loglik, e$aic)
+
+f = arima(train_subset99, c(1,1,3), c(2,1,3), method = 'CSS')
+f_stat = c(f$sigma2, f$loglik, f$aic)
+
+h = arima(train_subset99, c(2,1,3), c(2,1,3), method = 'CSS')
+h_stat = c(h$sigma2, h$loglik, h$aic)
+
+table1 = rbind(b_stat, c_stat, d_stat, e_stat, f_stat, h_stat)
+colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC')
+table1
+```
+
+It seems that e and f have the more optimal values of the models that have been used for training.
+We test if h is better than e using the likelihood ratio test.
+###Likelihood Ratio Test:
+```{r}
+D <- -2*(e$loglik - f$loglik)
+pval <- 1-pchisq(D,1)
+print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
+
+```
+
+p-value < 0.05 which means that f performs better than e.
+From this we can say that SARIMA(1,1,3)(2,1,3)[12] does better than the other models. We first do a residual diagnostic to check if our model is a good fit on the data.
+
+
+```{r}
+# test whether residuals have zero mean
+(t.test(f$residuals))
+plot(f$residuals, main = "Residuals vs. Time", ylab = "Residuals")
+abline(h = 0, col = "red")
+```
+
+Test for Zero-Correlation:
+```{r fig.height=5}
+tsdiag(f)
+```
+Test for homoscedasticity
+```{r}
+group <- c(rep(1,30),rep(2,30),rep(3,30), rep(4,30), rep(5,30), rep(6,30))
+
+
+(leveneTest(f$residuals,group)) #Levene
+#(bartlett.test(g$residuals,group)) #Bartlett  
+scatter.smooth(e$residuals, ylab = 'Residuals')
+```
+Test for normality:
+```{r}
+qqnorm(f$residuals)
+qqline(f$residuals, col = "red")
+(shapiro.test(f$residuals))
+```
+All tests except normality are passed due to outliers at the beginning of the time series.
+Here although h seems to do well on the train set, e does better on the validation set
+
+**Testing on the validation set:**
+```{r}
+
+forecast_sarima_subset = forecast(e, h = 24, level = 95)
+plot(forecast_sarima_subset)
+valid
+forecast_sarima_subset
+rmse_sarima_subset = rmse(valid, forecast_sarima_subset$mean)
+rmse_sarima_subset
+```
 
 
 
+```{r}
+train = read.csv('train.csv')
+train = na.omit(train)
+train = train$Bankruptcy_Rate
+train = ts(train, start = c(1987,1), frequency = 12)
+valid = train[265:288]
+train = train[145:264]
+train = ts(train, start = c(1999,1), frequency = 12)
+valid = ts(valid, start = c(2009,1), frequency = 12) 
+train
+valid
+plot(train)
+plot(valid)
+```
 
 ##Double Exponential Smoothing
 ```{r}
-hw.CH <- HoltWinters(x = only_bankruptcy, gamma = F) 
+hw.CH <- HoltWinters(x = train, gamma = F) 
 par(mfrow = c(2,1))
 plot(hw.CH)
-
+forecast_de = forecast(hw.CH, h = 24, level = 95)
+plot(forecast_de)
+forecast_de
+rmse_de = rmse(valid, forecast_de$mean)
+rmse_de
 ```
 
 ##Triple Exponential Smoothing - Additive
 ```{r}
-hw.AD <- HoltWinters(x = only_bankruptcy, seasonal = "add") 
+hw.AD <- HoltWinters(x = train, seasonal = "add") 
 par(mfrow = c(2,1))
 plot(hw.AD)
-
+forecast_te = forecast(hw.AD, h = 24, level = 95)
+plot(forecast_te)
+forecast_te
+rmse_te = rmse(valid, forecast_te$mean)
+rmse_te
 ```
 
-##Triple Exponential Smoothing - Multiplicative
-```{r}
-hw.AD <- HoltWinters(x = only_bankruptcy, seasonal = "multiplicative") 
-par(mfrow = c(2,1))
-plot(hw.AD)
-
-```
