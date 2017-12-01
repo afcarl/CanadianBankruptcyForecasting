@@ -201,7 +201,7 @@ forecast_sarima = forecast(e, h = 24, level = 95)
 plot(forecast_sarima)
 valid
 #forecast_sarima
-rmse_sarima = rmse(valid, forecast_sarima$mean)
+rmse_sarima = rmse(exp(valid), exp(forecast_sarima$mean))
 rmse_sarima
 ```
 
@@ -214,10 +214,13 @@ train_subset99 = ts(train_subset99, start = 1999, frequency = 12)
 plot(train_subset99)
 ```
 
+
 ```{r}
 auto = auto.arima(train_subset99,d = 1, D = 1)
-# a = arima(train_subset99, c(2,1,3), c(2,1,2))
-# a_stat = c(a$sigma2, a$loglik, a$aic)
+
+# CSS because tests showed that normality is not satisfied, so we camnnot use MLE and have to use LS approach
+a = arima(train_subset99, c(1,1,2), c(3,1,1), method = 'CSS')
+a_stat = c(a$sigma2, a$loglik, a$aic)
 
 b = arima(train_subset99, c(2,1,2), c(2,1,2), method = 'CSS')
 b_stat = c(b$sigma2, b$loglik, b$aic)
@@ -237,50 +240,50 @@ f_stat = c(f$sigma2, f$loglik, f$aic)
 h = arima(train_subset99, c(2,1,3), c(2,1,3), method = 'CSS')
 h_stat = c(h$sigma2, h$loglik, h$aic)
 
-table1 = rbind(b_stat, c_stat, d_stat, e_stat, f_stat, h_stat)
+table1 = rbind(a_stat, b_stat, c_stat, d_stat, e_stat, f_stat, h_stat)
 colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC')
 table1
 ```
 
-It seems that e and f have the more optimal values of the models that have been used for training.
-We test if h is better than e using the likelihood ratio test.
-###Likelihood Ratio Test:
-```{r}
-D <- -2*(e$loglik - f$loglik)
-pval <- 1-pchisq(D,1)
-print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
+It seems that a and h have the more optimal values of the models that have been used for training. On testing, h has shown better results on the validation set.
+<!-- We test if h is better than e using the likelihood ratio test. -->
+<!-- ###Likelihood Ratio Test: -->
+<!-- ```{r} -->
+<!-- D <- -2*(e$loglik - f$loglik) -->
+<!-- pval <- 1-pchisq(D,1) -->
+<!-- print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4))) -->
 
-```
+<!-- ``` -->
 
-p-value < 0.05 which means that f performs better than e.
-From this we can say that SARIMA(1,1,3)(2,1,3)[12] does better than the other models. We first do a residual diagnostic to check if our model is a good fit on the data.
+<!-- p-value < 0.05 which means that f performs better than e. -->
+From this we can say that SARIMA(2,1,3)(2,1,3)[12] does better than the other models. We first do a residual diagnostic to check if our model is a good fit on the data.
 
 
 ```{r}
 # test whether residuals have zero mean
-(t.test(f$residuals))
-plot(f$residuals, main = "Residuals vs. Time", ylab = "Residuals")
+(t.test(h$residuals))
+plot(h$residuals, main = "Residuals vs. Time", ylab = "Residuals")
 abline(h = 0, col = "red")
 ```
 
 Test for Zero-Correlation:
 ```{r fig.height=5}
-tsdiag(f)
+tsdiag(h)
 ```
 Test for homoscedasticity
 ```{r}
-group <- c(rep(1,30),rep(2,30),rep(3,30), rep(4,30), rep(5,30), rep(6,30))
+group <- c(rep(1,30),rep(2,30),rep(3,30), rep(4,30))
 
 
-(leveneTest(f$residuals,group)) #Levene
+(leveneTest(h$residuals,group)) #Levene
 #(bartlett.test(g$residuals,group)) #Bartlett  
-scatter.smooth(e$residuals, ylab = 'Residuals')
+scatter.smooth(h$residuals, ylab = 'Residuals')
 ```
 Test for normality:
 ```{r}
-qqnorm(f$residuals)
-qqline(f$residuals, col = "red")
-(shapiro.test(f$residuals))
+qqnorm(h$residuals)
+qqline(h$residuals, col = "red")
+(shapiro.test(h$residuals))
 ```
 All tests except normality are passed due to outliers at the beginning of the time series.
 Here although h seems to do well on the train set, e does better on the validation set
@@ -288,12 +291,13 @@ Here although h seems to do well on the train set, e does better on the validati
 **Testing on the validation set:**
 ```{r}
 
-forecast_sarima_subset = forecast(e, h = 24, level = 95)
+forecast_sarima_subset = forecast(a, h = 24, level = 95)
 plot(forecast_sarima_subset)
 valid
 forecast_sarima_subset
-rmse_sarima_subset = rmse(valid, forecast_sarima_subset$mean)
+rmse_sarima_subset = rmse(exp(valid), exp(forecast_sarima_subset$mean))
 rmse_sarima_subset
+
 ```
 
 
@@ -321,7 +325,7 @@ plot(hw.CH)
 forecast_de = forecast(hw.CH, h = 24, level = 95)
 plot(forecast_de)
 forecast_de
-rmse_de = rmse(valid, forecast_de$mean)
+rmse_de = rmse(exp(valid), exp(forecast_de$mean))
 rmse_de
 ```
 
@@ -333,7 +337,7 @@ plot(hw.AD)
 forecast_te = forecast(hw.AD, h = 24, level = 95)
 plot(forecast_te)
 forecast_te
-rmse_te = rmse(valid, forecast_te$mean)
+rmse_te = rmse(exp(valid), exp(forecast_te$mean))
 rmse_te
 ```
 
