@@ -12,42 +12,23 @@ if(!require("forecast")){install.packages("forecast", repos = "http://cran.us.r-
 if(!require("prophet")){install.packages("forecast", repos = "http://cran.us.r-project.org")}
 ```
 
+
 ```{r}
-train = read.csv('Data/train.csv')
-train = na.omit(train)
-only_bankruptcy = ts(train$Bankruptcy_Rate,start=c(1987,1),frequency = 12)
+train <- read.csv('Data/train.csv')
+train <- na.omit(train)
 train$Mon <- seq.Date(as.Date("1987/1/1"), as.Date("2010/12/1"), by = "month")
+# Train-Validation split
+valid <- train[265:288,]
+train <- train[1:264,]
+train_bankruptcy <- ts(train$Bankruptcy_Rate, start=c(1987,1),frequency = 12)
+valid_bankruptcy <- ts(valid$Bankruptcy_Rate, start=c(2009,1),frequency = 12)
 tail(train)
 ```
 
 ## Time Series Decomposition:
 
 ```{r}
-autoplot(decompose(only_bankruptcy))
-```
-
-## Fit ARIMA Model using `auto.arima`:
-
-```{r}
-ts_model <- auto.arima(only_bankruptcy)
-train$fitted <- ts_model$fitted
-train$resid <- ts_model$residuals
-ts_model
-```
-
-```{r}
-train %>% 
-  ggplot(aes(x=Mon))+
-  geom_line(aes(y=Bankruptcy_Rate,color='Actual'))+
-  geom_line(aes(y=fitted,color='Fitted'))+
-  labs(color='')
-```
-
-
-## Regress Residuals on Unemployment rate, Populatin and House Price Index:
-
-```{r}
-lin_mod <- glm(resid ~ Unemployment_Rate + Population + House_Price_Index, data = train)
+autoplot(decompose(train_bankruptcy))
 ```
 
 ## FB Prophet:
@@ -66,7 +47,8 @@ pred_prophet <- predict(mod)
 pred_prophet %>% 
   ggplot(aes(x=ds))+
   geom_line(aes(y=train$Bankruptcy_Rate, color='Actual'))+
-  geom_line(aes(y=yhat,color='Fitted'))
+  geom_line(aes(y=yhat,color='Fitted'))+
+  labs(color='')
 ```
 
 
