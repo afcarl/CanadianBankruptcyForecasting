@@ -1,0 +1,132 @@
+---
+title: "VAR"
+author: "Christopher Csiszar"
+date: "12/2/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r var}
+
+rm(list=ls())
+library(magrittr)
+library(tidyverse)
+library(tseries)
+
+
+raw <- read.csv("~/Desktop/timeseries/train.csv")
+
+raw = na.omit(raw)
+
+train <- raw[1:264,]
+test <- raw[265:288,]
+
+BR = raw$Bankruptcy_Rate
+
+BRtrain <- ts(train$Bankruptcy_Rate, start = c(1987, 1), frequency = 12)
+PoPtrain = ts(train$Population, start = c(1987, 1), frequency = 12)
+HPItrain = ts(train$House_Price_Index, start = c(1987, 1), frequency = 12)
+UNtrain = ts(train$Unemployment_Rate, start = c(1987, 1), frequency = 12)
+
+BRtest <- ts(test$Bankruptcy_Rate, start = c(2009, 1), frequency = 12)
+
+plot(BRtrain)
+
+par(mfrow=c(2,2))
+plot(BRtrain)
+plot(PoPtrain)
+plot(HPItrain)
+plot(UNtrain)
+
+# conceptually unemployment and HPI also dip during validation period, seems like an external regressor option 
+# also we suspect bankrupcy rate affects unemployment
+
+library(vars)
+#########
+## VAR ##
+#########
+? VAR
+
+# Let's fit a few models
+m1 = VAR(y = data.frame(BRtrain, HPItrain, PoPtrain, UNtrain), p = 2)
+m2 = VAR(y = data.frame(BRtrain, HPItrain, PoPtrain), p = 2)
+m3 = VAR(y = data.frame(BRtrain, HPItrain), p = 2)
+m4 = VAR(y = data.frame(BRtrain, PoPtrain, UNtrain), p = 2)
+m5 = VAR(y = data.frame(BRtrain, UNtrain), p = 2)
+m6 = VAR(y = data.frame(BRtrain, HPItrain, UNtrain), p = 2)
+m7 = VAR(y = data.frame(BRtrain, PoPtrain), p = 2)
+
+pred <- predict(m1, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m2, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m3, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m4, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m5, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m6, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m7, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+# m3 has best rmse
+
+# which p?
+
+m3.1 = VAR(y = data.frame(BRtrain, HPItrain), p = 1)
+m3.2 = VAR(y = data.frame(BRtrain, HPItrain), p = 2)
+m3.3 = VAR(y = data.frame(BRtrain, HPItrain), p = 3)
+
+pred <- predict(m3.1, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m3.2, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+pred <- predict(m3.3, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+# p = 2 seems best
+
+# Let's now do some forecasting with this model
+pred <- predict(m3.2, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+# ok let's add unemployment as external
+
+m3.2 = VAR(y = data.frame(BRtrain, HPItrain), p = 2)
+
+pred <- predict(m3.2, n.ahead = 24, ci = 0.95)
+rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
+rmse.var
+
+plot(pred)
+
+```
+
+
+Another multivariate option to forecast the bankrupcy rate is to consider the variables on hand, or a subset of them, as endogenously related. This means that unlike in SARIMAX where we assume no causal effect of the response on any external variables, here we assume the response variable has a causal influence on at least one other variable to be included in the model. In such a situation, we turn to a vector auto-regression (VAR) model to assess the relationship between the response variable and all others which are endogenously related to it. 
+
+VAR models can be made more complex in the hopes of better modeling the response variable, and making better predictions. Exogenous variables can be added into the model for instance, as can seasonality indicators.
