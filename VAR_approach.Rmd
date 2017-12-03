@@ -116,17 +116,21 @@ rmse.var
 
 # ok let's add unemployment as external
 
-m3.2 = VAR(y = data.frame(BRtrain, HPItrain), p = 2)
+data <- read.csv("~/Downloads/train.csv", header = T)
+BRtrain <- ts(data$Bankruptcy_Rate, start = 1987, end = 2010+(11/12), frequency = 12)
+URtrain <- ts(data$Unemployment_Rate, start = 1987, end = 2010+(11/12), frequency = 12)
+HPItrain <- ts(data$House_Price_Index, start = 1987, end = 2010+(11/12), frequency = 12)
 
-pred <- predict(m3.2, n.ahead = 24, ci = 0.95)
+m_exo = VAR(y = data.frame(BRtrain, HPItrain), p = 2, season = 12, exogen = data.frame(URtrain))
+
+pred <- predict(m_exo, n.ahead = 24, ci = 0.95, dumvar = as.matrix(test$Unemployment_Rate))
 rmse.var <- sqrt(mean((pred$fcst$BRtrain - test$Bankruptcy_Rate)^2))
 rmse.var
-
-plot(pred)
-
 ```
 
 
 Another multivariate option to forecast the bankrupcy rate is to consider the variables on hand, or a subset of them, as endogenously related. This means that unlike in SARIMAX where we assume no causal effect of the response on any external variables, here we assume the response variable has a causal influence on at least one other variable to be included in the model. In such a situation, we turn to a vector auto-regression (VAR) model to assess the relationship between the response variable and all others which are endogenously related to it. 
 
-VAR models can be made more complex in the hopes of better modeling the response variable, and making better predictions. Exogenous variables can be added into the model for instance, as can seasonality indicators.
+VAR models can be made more complex in the hopes of better modeling the response variable, and making better predictions. Exogenous variables can be added into the model for instance, as can seasonality indicators. 
+
+In our case, we examined a VAR model with the bankruptcy rate and the housing price index as two endogenous variables. Despite further adding the unemployment rate as an exogenous variable to the model, as well as incorporating seasonality, the values of our predictions on the validation set were not as accurate as other models.
