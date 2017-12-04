@@ -1,10 +1,10 @@
 ---
-title: "Univariate"
+title: "Prophet"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 if(!require("tidyverse")){install.packages("tidyverse", repos = "http://cran.us.r-project.org")}
 if(!require("tseries")){install.packages("tseries", repos = "http://cran.us.r-project.org")}
 if(!require("car")){install.packages("car", repos = "http://cran.us.r-project.org")}
@@ -17,39 +17,60 @@ if(!require("prophet")){install.packages("forecast", repos = "http://cran.us.r-p
 train <- read.csv('Data/train.csv')
 train <- na.omit(train)
 train$Mon <- seq.Date(as.Date("1987/1/1"), as.Date("2010/12/1"), by = "month")
-# Train-Validation split
 valid <- train[265:288,]
-train <- train[1:264,]
-train_bankruptcy <- ts(train$Bankruptcy_Rate, start=c(1987,1),frequency = 12)
-valid_bankruptcy <- ts(valid$Bankruptcy_Rate, start=c(2009,1),frequency = 12)
-tail(train)
-```
-
-## Time Series Decomposition:
-
-```{r}
-autoplot(decompose(train_bankruptcy))
 ```
 
 ## FB Prophet:
 
 ```{r}
-train_prophet <- train %>% select(Mon,Bankruptcy_Rate)
+train_prophet <- train[1:264,] %>% select(Mon,Bankruptcy_Rate)
 colnames(train_prophet) <- c('ds','y')
+train_prophet$y <- log(train_prophet$y)
 ```
 
 ```{r}
-mod <- prophet(train_prophet)
-pred_prophet <- predict(mod)
+mod_prophet <- prophet(train_prophet, changepoint.prior.scale = 0.75)
+pred_prophet <- predict(mod_prophet)
+future <- setNames(as.data.frame(seq.Date(as.Date("2009/1/1"), as.Date("2010/12/1"), by = "month")), "ds")
 ```
 
-```{r}
+```{r, fig.height=4}
 pred_prophet %>% 
   ggplot(aes(x=ds))+
-  geom_line(aes(y=train$Bankruptcy_Rate, color='Actual'))+
-  geom_line(aes(y=yhat,color='Fitted'))+
-  labs(color='')
+  geom_line(aes(y=exp(train_prophet$y), color='Observed'))+
+  geom_line(aes(y=exp(yhat),color='Fitted'))+
+  labs(color='',y='Bankruptcy Rate',x='Time')
 ```
 
+```{r}
+forc_prophet <- predict(mod_prophet, future)
+sqrt(mean((exp(forc_prophet$yhat) - valid$Bankruptcy_Rate)^2))
+```
+
+# Retrain model on entire dataset and forecast for 2011-12
+```{r, fig.height=4}
+retrain_data <- train %>% select(Mon, Bankruptcy_Rate)
+colnames(retrain_data) <- c("ds","y")
+retrain_data$y <- log(retrain_data$y)
+remod_prophet <- prophet(retrain_data, changepoint.prior.scale = 0.75)
+pred_re_prophet <- predict(remod_prophet)
+re_future <- setNames(as.data.frame(seq.Date(as.Date("2011/1/1"), as.Date("2012/12/1"), by = "month")), "ds")
+re_forc_prophet <- predict(remod_prophet, re_future)
+
+results <- setNames(as.data.frame(list(seq.Date(as.Date("2011/1/1"), as.Date("2012/12/1"), by = "month"),
+                                       exp(re_forc_prophet$yhat),exp(re_forc_prophet$yhat_lower),
+                                       exp(re_forc_prophet$yhat_upper))),
+                    c("Month","Forecast","Lower_CI","Upper_CI"))
+
+pred_re_prophet %>%
+  ggplot(aes(x=ds))+
+  geom_line(aes(y=exp(retrain_data$y), color='Observed'))+
+  geom_line(aes(y=exp(yhat),color='Fitted'))+
+  geom_line(data=results, aes(x=as.POSIXct(Month), y=Forecast, color='Forecast'))+
+  geom_ribbon(data=results, aes(x=as.POSIXct(Month), ymin=Lower_CI, ymax=Upper_CI, alpha=0.5), show.legend = F)+
+  labs(color='',y='Bankruptcy Rate', x='Time')
+
+knitr::kable(results, caption = "Bankruptcy Forecast (2011-2012)")
+```
 
 
