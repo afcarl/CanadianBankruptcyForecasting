@@ -4,7 +4,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, include = FALSE)
 library(tseries)
 library(car)
 library(Metrics)
@@ -64,30 +64,30 @@ trainPOP.seasdiff <- ts(trainPOP.seasdiff, start = c(1987,1), frequency = 12)
 h <- arima(train1, c(2,1,3), c(2,1,3))
 h_stat <- c(h$sigma2, h$loglik, h$aic)
 
-hUR = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR.diff[1:length(train1)]))
+hUR = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)]))
 hUR_stat = c(hUR$sigma2, hUR$loglik, hUR$aic)
 
-hHPI = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainHPI.diff[1:length(train1)]))
+hHPI = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train1)]))
 hHPI_stat = c(hHPI$sigma2, hHPI$loglik, hHPI$aic)
 
-hPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainPOP.seasdiff[1:length(train1)]))
+hPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainPOP[1:length(train1)]))
 hPOP_stat = c(hPOP$sigma2, hPOP$loglik, hPOP$aic)
 
-hURPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR.diff[1:length(train1)], 
-                                                             trainPOP.seasdiff[1:length(train1)]))
+hURPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)], 
+                                                             trainPOP[1:length(train1)]))
 hURPOP_stat = c(hURPOP$sigma2, hURPOP$loglik, hURPOP$aic)
 
-hURHPI = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR.diff[1:length(train1)], 
-                                                             trainHPI.diff[1:length(train1)]))
+hURHPI = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)], 
+                                                             trainHPI[1:length(train1)]))
 hURHPI_stat = c(hURHPI$sigma2, hURHPI$loglik, hURHPI$aic)
 
-hHPIPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainHPI.diff[1:length(train1)], 
-                                                              trainPOP.seasdiff[1:length(train1)]))
+hHPIPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train1)], 
+                                                              trainPOP[1:length(train1)]))
 hHPIPOP_stat = c(hHPIPOP$sigma2, hHPIPOP$loglik, hHPIPOP$aic)
 
-hURHPIPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR.diff[1:length(train1)], 
-                                                                trainHPI.diff[1:length(train1)], 
-                                                                trainPOP.seasdiff[1:length(train1)]))
+hURHPIPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)], 
+                                                                trainHPI[1:length(train1)], 
+                                                                trainPOP[1:length(train1)]))
 hURHPIPOP_stat = c(hURHPIPOP$sigma2, hURHPIPOP$loglik, hURHPIPOP$aic)
 
 table1 = rbind(h_stat, hUR_stat, hHPI_stat, hPOP_stat, hURPOP_stat, hURHPI_stat, 
@@ -96,24 +96,227 @@ colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC')
 table1
 ```
 
-After adding our exogenoys variabls, we found that all of the ones with Housing Price Index increased the log likelihood by an amount. This was not incredibly surprising given our early EDA of the data. Although it increased the log likelihood, we wanted to check if the log likelihood was significant enough to choose it as a better model of the data, not necessarily the predictability of the data. It was significantly better after running the test, now it was time to check if it was a stronger predictive model.
+After adding our exogenous variables, we found that all of the ones with Housing Price Index increased the log likelihood by an amount. This was not incredibly surprising given our early EDA of the data. Although it increased the log likelihood, we wanted to check if the log likelihood was significant enough to choose it as a better model of the data, not necessarily the predictability of the data. It was significantly better after running the test, now it was time to check if it was a stronger predictive model.
+
+```{r}
+D <- -2*(h$loglik - hHPIPOP$loglik)
+pval <- 1-pchisq(D,2)
+print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
+
+
+forecast_sarimaxHPIPOP <- forecast(hHPIPOP, h = 24, level = 95, xreg = data.frame( 
+                                                                                      trainHPI[265:288], 
+                                                                                      trainPOP[265:288]))
+plot(forecast_sarimaxHPIPOP)
+forecast_sarimaxHPIPOP
+rmse_sarimax <- rmse(exp(valid1), exp(forecast_sarimaxHPIPOP$mean))
+rmse_sarimax
+
+D <- -2*(h$loglik - hURHPIPOP$loglik)
+pval <- 1-pchisq(D,3)
+print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
+
+
+forecast_sarimaxURHPIPOP <- forecast(hURHPIPOP, h = 24, level = 95, xreg = data.frame(trainUR[265:288], 
+                                                                                      trainHPI[265:288], 
+                                                                                      trainPOP[265:288]))
+plot(forecast_sarimaxURHPIPOP)
+forecast_sarimaxURHPIPOP
+rmse_sarimax <- rmse(exp(valid1), exp(forecast_sarimaxURHPIPOP$mean))
+rmse_sarimax
+```
+
+Although it fits our data better currently, it does not correctly predict the values heading forth. Let's double check with the subset Sarima since models to see if, since the model has an unpredictable swing of values, if using a Sarimax with HPI will be better than just our sarima model.
+
+```{r}
+h <- arima(train1, c(0,1,3), c(2,1,3))
+h_stat <- c(h$sigma2, h$loglik, h$aic)
+
+hUR = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)]))
+hUR_stat = c(hUR$sigma2, hUR$loglik, hUR$aic)
+
+hHPI = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train1)]))
+hHPI_stat = c(hHPI$sigma2, hHPI$loglik, hHPI$aic)
+
+hPOP = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainPOP[1:length(train1)]))
+hPOP_stat = c(hPOP$sigma2, hPOP$loglik, hPOP$aic)
+
+hURPOP = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)], 
+                                                             trainPOP[1:length(train1)]))
+hURPOP_stat = c(hURPOP$sigma2, hURPOP$loglik, hURPOP$aic)
+
+hURHPI = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)], 
+                                                             trainHPI[1:length(train1)]))
+hURHPI_stat = c(hURHPI$sigma2, hURHPI$loglik, hURHPI$aic)
+
+hHPIPOP = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train1)], 
+                                                              trainPOP[1:length(train1)]))
+hHPIPOP_stat = c(hHPIPOP$sigma2, hHPIPOP$loglik, hHPIPOP$aic)
+
+hURHPIPOP = arima(train1, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train1)], 
+                                                                trainHPI[1:length(train1)], 
+                                                                trainPOP[1:length(train1)]))
+hURHPIPOP_stat = c(hURHPIPOP$sigma2, hURHPIPOP$loglik, hURHPIPOP$aic)
+
+table2 = rbind(h_stat, hUR_stat, hHPI_stat, hPOP_stat, hURPOP_stat, hURHPI_stat, 
+               hHPIPOP_stat, hURHPIPOP_stat)
+colnames(table2) = c('Sigma2', 'loglikelihood', 'AIC')
+table2
+```
 
 ```{r}
 D <- -2*(h$loglik - hHPI$loglik)
 pval <- 1-pchisq(D,1)
 print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
 
-hUR
 
-forecast_sarimaxHPI <- forecast(hUR, h = 23, level = 95, xreg = data.frame(trainUR.diff[265:287]))
+forecast_sarimaxHPI <- forecast(hHPI, h = 24, level = 95, xreg = data.frame( 
+                                                                                      trainHPI[265:288]))
 plot(forecast_sarimaxHPI)
 forecast_sarimaxHPI
-rmse_sarimax <- rmse(exp(valid1[1:length(valid1)-1]), exp(forecast_sarimaxHPI$mean))
+rmse_sarimax <- rmse(exp(valid1), exp(forecast_sarimaxHPI$mean))
 rmse_sarimax
 ```
 
-Although it fits our data better currently, it does not correctly predict the values heading forth, however, let's double check with the subset Sarima since models to see if, since the model has an unpredictable swing of values, if using a Sarimax with HPI will be better than just our sarima model.
+With a (0,1,3)(2,1,3)12 HPI SARIMAX model, I get a better RMSE than with just the (0,1,3)(2,1,3)12 SARIMA model. The model also fits the data better up to that point.
 
 ```{r}
+valid2 <- train[241:264]
+train2 <- train[1:240]
+train2 <- ts(train2, start = c(1987,1), frequency = 12)
+valid2 <- ts(valid2, start = c(2007,1), frequency = 12)
 
 ```
+
+```{r}
+h <- arima(train2, c(0,1,3), c(2,1,3))
+h_stat <- c(h$sigma2, h$loglik, h$aic)
+
+hUR = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)]))
+hUR_stat = c(hUR$sigma2, hUR$loglik, hUR$aic)
+
+hHPI = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train2)]))
+hHPI_stat = c(hHPI$sigma2, hHPI$loglik, hHPI$aic)
+
+hPOP = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainPOP[1:length(train2)]))
+hPOP_stat = c(hPOP$sigma2, hPOP$loglik, hPOP$aic)
+
+hURPOP = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)], 
+                                                             trainPOP[1:length(train2)]))
+hURPOP_stat = c(hURPOP$sigma2, hURPOP$loglik, hURPOP$aic)
+
+hURHPI = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)], 
+                                                             trainHPI[1:length(train2)]))
+hURHPI_stat = c(hURHPI$sigma2, hURHPI$loglik, hURHPI$aic)
+
+hHPIPOP = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train2)], 
+                                                              trainPOP[1:length(train2)]))
+hHPIPOP_stat = c(hHPIPOP$sigma2, hHPIPOP$loglik, hHPIPOP$aic)
+
+hURHPIPOP = arima(train2, c(0,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)], 
+                                                                trainHPI[1:length(train2)], 
+                                                                trainPOP[1:length(train2)]))
+hURHPIPOP_stat = c(hURHPIPOP$sigma2, hURHPIPOP$loglik, hURHPIPOP$aic)
+
+table3 = rbind(h_stat, hUR_stat, hHPI_stat, hPOP_stat, hURPOP_stat, hURHPI_stat, 
+               hHPIPOP_stat, hURHPIPOP_stat)
+colnames(table3) = c('Sigma2', 'loglikelihood', 'AIC')
+table3
+```
+
+```{r}
+D <- -2*(h$loglik - hHPI$loglik)
+pval <- 1-pchisq(D,1)
+print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
+
+
+forecast_sarimaxHPI <- forecast(hHPI, h = 24, level = 95, xreg = data.frame( 
+                                                                                      trainHPI[241:264]))
+plot(forecast_sarimaxHPI)
+forecast_sarimaxHPI
+rmse_sarimax <- rmse(exp(valid2), exp(forecast_sarimaxHPI$mean))
+rmse_sarimax
+
+best <- hHPI
+```
+
+```{r}
+h <- arima(train2, c(2,1,3), c(2,1,3))
+h_stat <- c(h$sigma2, h$loglik, h$aic)
+
+hUR = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)]))
+hUR_stat = c(hUR$sigma2, hUR$loglik, hUR$aic)
+
+hHPI = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train2)]))
+hHPI_stat = c(hHPI$sigma2, hHPI$loglik, hHPI$aic)
+
+hPOP = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainPOP[1:length(train2)]), method = "CSS")
+hPOP_stat = c(hPOP$sigma2, hPOP$loglik, hPOP$aic)
+
+hURPOP = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)], 
+                                                             trainPOP[1:length(train2)]), method = "CSS")
+hURPOP_stat = c(hURPOP$sigma2, hURPOP$loglik, hURPOP$aic)
+
+hURHPI = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)], 
+                                                             trainHPI[1:length(train2)]),
+               method = "CSS")
+hURHPI_stat = c(hURHPI$sigma2, hURHPI$loglik, hURHPI$aic)
+
+hHPIPOP = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainHPI[1:length(train2)], 
+                                                              trainPOP[1:length(train2)]),
+                method = "CSS")
+hHPIPOP_stat = c(hHPIPOP$sigma2, hHPIPOP$loglik, hHPIPOP$aic)
+
+hURHPIPOP = arima(train2, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR[1:length(train2)], 
+                                                                trainHPI[1:length(train2)], 
+                                                                trainPOP[1:length(train2)]),
+                  method = "CSS")
+hURHPIPOP_stat = c(hURHPIPOP$sigma2, hURHPIPOP$loglik, hURHPIPOP$aic)
+
+table4 = rbind(h_stat, hUR_stat, hHPI_stat, hPOP_stat, hURPOP_stat, hURHPI_stat, 
+               hHPIPOP_stat, hURHPIPOP_stat)
+colnames(table4) = c('Sigma2', 'loglikelihood', 'AIC')
+table4
+```
+
+```{r}
+D <- -2*(h$loglik - hHPI$loglik)
+pval <- 1-pchisq(D,1)
+print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))
+
+
+forecast_sarimaxHPI <- forecast(hHPI, h = 24, level = 95, xreg = data.frame( 
+                                                                                      trainHPI[241:264]))
+plot(forecast_sarimaxHPI)
+forecast_sarimaxHPI
+rmse_sarimax <- rmse(exp(valid2), exp(forecast_sarimaxHPI$mean))
+rmse_sarimax
+```
+
+Now that we have strong confirmation of which model we should use. Let's make sure that the model follows
+
+```{r}
+#residuals
+t.test(best$residuals)
+```
+
+```{r}
+tsdiag(best)
+```
+
+```{r}
+qqnorm(best$residuals)
+qqline(best$residuals, col = "red")
+(shapiro.test(best$residuals))
+```
+
+```{r}
+group <- c(rep(1,66),rep(2,66),rep(3,66),rep(4,66))
+
+
+(leveneTest(best$residuals,group)) #Levene
+#(bartlett.test(g$residuals,group)) #Bartlett  
+scatter.smooth(best$residuals, ylab = 'Residuals')
+```
+
+The new Sarimax function follows having a residuals of mean 0, a normal distribution, and were homosedastic. However, the model's residuals were not shown to be uncorrelated using our diagnostic tests.
