@@ -115,7 +115,7 @@ rmse_sarimax
 Although it fits our data better currently, it does not correctly predict the values heading forth, however, let's double check with the subset Sarima since models to see if, since the model has an unpredictable swing of values, if using a Sarimax with HPI will be better than just our sarima model.
 
 ```{r}
-h <- arima(train1, c(2,1,3), c(2,1,3))
+h <- arima(train1, c(0,1,3), c(2,1,3))
 h_stat <- c(h$sigma2, h$loglik, h$aic)
 
 hUR = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR.diff[1:length(train1)]))
@@ -144,8 +144,8 @@ hURHPIPOP = arima(train1, c(2,1,3), c(2,1,3), xreg = data.frame(trainUR.diff[1:l
                                                                 trainPOP.seasdiff[1:length(train1)]))
 hURHPIPOP_stat = c(hURHPIPOP$sigma2, hURHPIPOP$loglik, hURHPIPOP$aic)
 
-table2 = rbind(h_stat, hUR_stat, hHPI_stat, hPOP_stat, hURPOP_stat, hURHPI_stat, 
+table1 = rbind(h_stat, hUR_stat, hHPI_stat, hPOP_stat, hURPOP_stat, hURHPI_stat, 
                hHPIPOP_stat, hURHPIPOP_stat)
 colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC')
-table2
+table1
 ```
