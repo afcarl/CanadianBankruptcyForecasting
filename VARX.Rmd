@@ -1,0 +1,73 @@
+---
+title: "VARX"
+author: "Sri Santhosh Hari"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, message=F)
+library(tidyverse)
+library(magrittr)
+library(tseries)
+library(vars)
+```
+
+```{r}
+train_data <- read_csv("Data/train.csv")
+train_data <- na.omit(train_data)
+test <- read_csv("Data/test.csv")
+test <- na.omit(test)
+train_data$Mon <- seq.Date(as.Date("1987/1/1"), as.Date("2010/12/1"), by = "month")
+test$Mon <- seq.Date(as.Date("2011/1/1"), as.Date("2012/12/1"), by = "month")
+train <- train_data[1:264,]
+valid <- train_data[265:288,]
+```
+
+```{r}
+VARselect(train[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
+          lag.max = 12, type="both", season=12, exogen=train["Population"])
+```
+
+```{r}
+mod_var <- VAR(train[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
+           p=3, type="both", season=12, exogen = train["Population"])
+fit_var <- data.frame(fitted(mod_var))
+valid_var <- predict(mod_var, n.ahead=24, ci=0.95, dumvar = valid["Population"])
+valid_pred <- data.frame(valid_var$fcst$Bankruptcy_Rate)
+```
+
+```{r}
+train_data %>%
+  filter(!(Month %in% c(11987,21987,31987))) %>% 
+  ggplot()+
+  geom_line(aes(x=Mon, y=Bankruptcy_Rate,color="Observed"))+
+  geom_line(data=train[4:264,], aes(x=Mon, y=fit_var$Bankruptcy_Rate,color="Fitted"))+
+  geom_line(data=valid, aes(x=Mon, y=valid_pred$fcst,color="Forecasted"))+
+  labs(color='', x="Time", y="Bankruptcy Rate")
+```
+
+```{r}
+sqrt(mean((valid_pred$fcst - valid$Bankruptcy_Rate)^2))
+```
+
+# Retrain Model:
+
+```{r}
+retrain_mod_var <- VAR(train_data[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
+           p=3, type="both", season=12, exogen = train_data["Population"])
+refit_var <- data.frame(fitted(retrain_mod_var))
+test_pred <- data.frame(predict(retrain_mod_var, n.ahead=24, pi=0.95,
+                                dumvar = test["Population"])$fcst$Bankruptcy_Rate)
+```
+
+```{r}
+train_data %>%
+  filter(!(Month %in% c(11987,21987,31987))) %>% 
+  ggplot()+
+  geom_line(aes(x=Mon, y=Bankruptcy_Rate, color='Observed'))+
+  geom_line(aes(x=Mon, y=refit_var$Bankruptcy_Rate, color='Fitted'))+
+  geom_line(data=test_pred, aes(x=test$Mon, y=fcst, color='Forecast'))+
+  geom_ribbon(data=test_pred, aes(x=test$Mon, ymin=lower, ymax=upper, alpha=0.5), show.legend = F)+
+  labs(color='',y='Bankruptcy Rate', x='Time')
+```
+
