@@ -30,7 +30,7 @@ VARselect(train[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
 
 ```{r}
 mod_var <- VAR(train[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
-           p=3, type="both", season=12, exogen = train["Population"])
+           p=3, season=12, exogen = train["Population"])
 fit_var <- data.frame(fitted(mod_var))
 valid_var <- predict(mod_var, n.ahead=24, ci=0.95, dumvar = valid["Population"])
 valid_pred <- data.frame(valid_var$fcst$Bankruptcy_Rate)
@@ -54,7 +54,7 @@ sqrt(mean((valid_pred$fcst - valid$Bankruptcy_Rate)^2))
 
 ```{r}
 retrain_mod_var <- VAR(train_data[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
-           p=3, type="both", season=12, exogen = train_data["Population"])
+           p=3, season=12, exogen = train_data["Population"])
 refit_var <- data.frame(fitted(retrain_mod_var))
 test_pred <- data.frame(predict(retrain_mod_var, n.ahead=24, pi=0.95,
                                 dumvar = test["Population"])$fcst$Bankruptcy_Rate)
