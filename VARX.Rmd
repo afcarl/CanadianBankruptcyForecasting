@@ -25,7 +25,7 @@ valid <- train_data[265:288,]
 
 ```{r}
 VARselect(train[c("Bankruptcy_Rate","Unemployment_Rate","House_Price_Index")],
-          lag.max = 12, type="both", season=12, exogen=train["Population"])
+          lag.max = 12, season=12, exogen=train["Population"])
 ```
 
 ```{r}
