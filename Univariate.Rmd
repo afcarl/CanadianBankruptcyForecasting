@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tseries)
 library(car)
 library(Metrics)
+library(forecast)
 ```
 
 Split the train data into train and validation. The last 2 years form a part of the validation set.
@@ -126,7 +127,7 @@ pacf(train_diff2, lag.max = 100)
 Thus, we now try various values of p, q, P and Q to model this data using SARIMA with d = 1, D = 1 and period = 12.
 
 ```{r}
-auto = auto.arima(train,d = 1, D=1)
+#auto = auto.arima(train,d = 1, D=1)
 a = arima(train, c(2,1,3), c(2,1,2))
 a_stat = c(a$sigma2, a$loglik, a$aic)
 
@@ -179,7 +180,7 @@ tsdiag(e)
 ```
 Test for homoscedasticity
 ```{r}
-group <- c(rep(1,60),rep(2,60),rep(3,60),rep(4,60),rep(5,24))
+group <- c(rep(1,66), rep(2, 66), rep(3, 66), rep(4,66))
 
 
 (leveneTest(e$residuals,group)) #Levene
@@ -192,7 +193,8 @@ qqnorm(e$residuals)
 qqline(e$residuals, col = "red")
 (shapiro.test(e$residuals))
 ```
-All tests except normality are passed due to outliers at the beginning of the time series.
+All tests including normality are passed.
+
 
 **Testing on the validation set:**
 ```{r}
@@ -207,98 +209,98 @@ rmse_sarima
 
 The rmse on the validation set is `r rmse` which does not seem like an optimal fit. 
 
-To improve the results, we could try subsetting the data:
-```{r}
-train_subset99 = train[145:264]
-train_subset99 = ts(train_subset99, start = 1999, frequency = 12)
-plot(train_subset99)
-```
-
-
-```{r}
-auto = auto.arima(train_subset99,d = 1, D = 1)
-
-# CSS because tests showed that normality is not satisfied, so we camnnot use MLE and have to use LS approach
-a = arima(train_subset99, c(1,1,2), c(3,1,1), method = 'CSS')
-a_stat = c(a$sigma2, a$loglik, a$aic)
-
-b = arima(train_subset99, c(2,1,2), c(2,1,2), method = 'CSS')
-b_stat = c(b$sigma2, b$loglik, b$aic)
-
-c = arima(train_subset99, c(2,1,2), c(2,1,1), method = 'CSS')
-c_stat = c(c$sigma2, c$loglik, c$aic)
-
-d = arima(train_subset99, c(2,1,3), c(2,1,1), method = 'CSS')
-d_stat = c(d$sigma2, d$loglik, d$aic)
-
-e = arima(train_subset99, c(0,1,3), c(2,1,3), method = 'CSS')
-e_stat = c(e$sigma2, e$loglik, e$aic)
-
-f = arima(train_subset99, c(1,1,3), c(2,1,3), method = 'CSS')
-f_stat = c(f$sigma2, f$loglik, f$aic)
-
-h = arima(train_subset99, c(2,1,3), c(2,1,3), method = 'CSS')
-h_stat = c(h$sigma2, h$loglik, h$aic)
-
-table1 = rbind(a_stat, b_stat, c_stat, d_stat, e_stat, f_stat, h_stat)
-colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC')
-table1
-```
-
-It seems that a and h have the more optimal values of the models that have been used for training. On testing, h has shown better results on the validation set.
-<!-- We test if h is better than e using the likelihood ratio test. -->
-<!-- ###Likelihood Ratio Test: -->
+<!-- To improve the results, we could try subsetting the data: -->
 <!-- ```{r} -->
-<!-- D <- -2*(e$loglik - f$loglik) -->
-<!-- pval <- 1-pchisq(D,1) -->
-<!-- print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4))) -->
-
+<!-- train_subset99 = train[145:264] -->
+<!-- train_subset99 = ts(train_subset99, start = 1999, frequency = 12) -->
+<!-- plot(train_subset99) -->
 <!-- ``` -->
 
+
+<!-- ```{r} -->
+<!-- auto = auto.arima(train_subset99,d = 1, D = 1) -->
+
+<!-- # CSS because tests showed that normality is not satisfied, so we camnnot use MLE and have to use LS approach -->
+<!-- a = arima(train_subset99, c(1,1,2), c(3,1,1), method = 'CSS') -->
+<!-- a_stat = c(a$sigma2, a$loglik, a$aic) -->
+
+<!-- b = arima(train_subset99, c(2,1,2), c(2,1,2), method = 'CSS') -->
+<!-- b_stat = c(b$sigma2, b$loglik, b$aic) -->
+
+<!-- c = arima(train_subset99, c(2,1,2), c(2,1,1), method = 'CSS') -->
+<!-- c_stat = c(c$sigma2, c$loglik, c$aic) -->
+
+<!-- d = arima(train_subset99, c(2,1,3), c(2,1,1), method = 'CSS') -->
+<!-- d_stat = c(d$sigma2, d$loglik, d$aic) -->
+
+<!-- e = arima(train_subset99, c(0,1,3), c(2,1,3), method = 'CSS') -->
+<!-- e_stat = c(e$sigma2, e$loglik, e$aic) -->
+
+<!-- f = arima(train_subset99, c(1,1,3), c(2,1,3), method = 'CSS') -->
+<!-- f_stat = c(f$sigma2, f$loglik, f$aic) -->
+
+<!-- h = arima(train_subset99, c(2,1,3), c(2,1,3), method = 'CSS') -->
+<!-- h_stat = c(h$sigma2, h$loglik, h$aic) -->
+
+<!-- table1 = rbind(a_stat, b_stat, c_stat, d_stat, e_stat, f_stat, h_stat) -->
+<!-- colnames(table1) = c('Sigma2', 'loglikelihood', 'AIC') -->
+<!-- table1 -->
+<!-- ``` -->
+
+<!-- It seems that a and h have the more optimal values of the models that have been used for training. On testing, h has shown better results on the validation set. -->
+<!--  We test if h is better than e using the likelihood ratio test -->
+<!--  ###Likelihood Ratio Test:  -->
+<!-- ```{r} -->
+<!-- D <- -2*(e$loglik - f$loglik)  -->
+<!-- pval <- 1-pchisq(D,1)  -->
+<!-- print(c("Test Statistic:",round(D, 4),"P-value:", round(pval, 4)))  -->
+
+<!-- ```  -->
+
 <!-- p-value < 0.05 which means that f performs better than e. -->
-From this we can say that SARIMA(2,1,3)(2,1,3)[12] does better than the other models. We first do a residual diagnostic to check if our model is a good fit on the data.
+<!-- From this we can say that SARIMA(2,1,3)(2,1,3)[12] does better than the other models. We first do a residual diagnostic to check if our model is a good fit on the data. -->
 
 
-```{r}
-# test whether residuals have zero mean
-(t.test(h$residuals))
-plot(h$residuals, main = "Residuals vs. Time", ylab = "Residuals")
-abline(h = 0, col = "red")
-```
+<!-- ```{r} -->
+<!-- # test whether residuals have zero mean -->
+<!-- (t.test(a$residuals)) -->
+<!-- plot(a$residuals, main = "Residuals vs. Time", ylab = "Residuals") -->
+<!-- abline(h = 0, col = "red") -->
+<!-- ``` -->
 
-Test for Zero-Correlation:
-```{r fig.height=5}
-tsdiag(h)
-```
-Test for homoscedasticity
-```{r}
-group <- c(rep(1,30),rep(2,30),rep(3,30), rep(4,30))
+<!-- Test for Zero-Correlation: -->
+<!-- ```{r fig.height=5} -->
+<!-- tsdiag(a) -->
+<!-- ``` -->
+<!-- Test for homoscedasticity -->
+<!-- ```{r} -->
+<!-- group <- c(rep(1,60),rep(2,60)) -->
 
 
-(leveneTest(h$residuals,group)) #Levene
-#(bartlett.test(g$residuals,group)) #Bartlett  
-scatter.smooth(h$residuals, ylab = 'Residuals')
-```
-Test for normality:
-```{r}
-qqnorm(h$residuals)
-qqline(h$residuals, col = "red")
-(shapiro.test(h$residuals))
-```
-All tests except normality are passed due to outliers at the beginning of the time series.
-Here although h seems to do well on the train set, e does better on the validation set
+<!-- (leveneTest(h$residuals,group)) #Levene -->
+<!-- #(bartlett.test(g$residuals,group)) #Bartlett   -->
+<!-- scatter.smooth(h$residuals, ylab = 'Residuals') -->
+<!-- ``` -->
+<!-- Test for normality: -->
+<!-- ```{r} -->
+<!-- qqnorm(h$residuals) -->
+<!-- qqline(h$residuals, col = "red") -->
+<!-- (shapiro.test(h$residuals)) -->
+<!-- ``` -->
+<!-- All tests except normality are passed due to outliers at the beginning of the time series. -->
+<!-- Here although h seems to do well on the train set, e does better on the validation set -->
 
-**Testing on the validation set:**
-```{r}
+<!-- **Testing on the validation set:** -->
+<!-- ```{r} -->
 
-forecast_sarima_subset = forecast(a, h = 24, level = 95)
-plot(forecast_sarima_subset)
-valid
-forecast_sarima_subset
-rmse_sarima_subset = rmse(exp(valid), exp(forecast_sarima_subset$mean))
-rmse_sarima_subset
+<!-- forecast_sarima_subset = forecast(a, h = 24, level = 95) -->
+<!-- plot(forecast_sarima_subset) -->
+<!-- valid -->
+<!-- forecast_sarima_subset -->
+<!-- rmse_sarima_subset = rmse(exp(valid), exp(forecast_sarima_subset$mean)) -->
+<!-- rmse_sarima_subset -->
 
-```
+<!-- ``` -->
 
 
 
@@ -325,19 +327,19 @@ plot(hw.CH)
 forecast_de = forecast(hw.CH, h = 24, level = 95)
 plot(forecast_de)
 forecast_de
-rmse_de = rmse(exp(valid), exp(forecast_de$mean))
+rmse_de = rmse(valid, forecast_de$mean)
 rmse_de
 ```
 
-##Triple Exponential Smoothing - Additive
+##Triple Exponential Smoothing - Multiplicative
 ```{r}
-hw.AD <- HoltWinters(x = train, seasonal = "add") 
+hw.AD <- HoltWinters(x = log(train), seasonal = "additive") 
 par(mfrow = c(2,1))
 plot(hw.AD)
 forecast_te = forecast(hw.AD, h = 24, level = 95)
 plot(forecast_te)
 forecast_te
-rmse_te = rmse(exp(valid), exp(forecast_te$mean))
+rmse_te = rmse(valid, exp(forecast_te$mean))
 rmse_te
 ```
 
